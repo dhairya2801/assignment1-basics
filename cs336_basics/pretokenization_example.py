@@ -1,6 +1,8 @@
 import os
+import regex as re
 from typing import BinaryIO
-
+from multiprocessing import Pool
+from collections import defaultdict
 
 def find_chunk_boundaries(
     file: BinaryIO,
@@ -50,13 +52,36 @@ def find_chunk_boundaries(
 
 
 ## Usage
-with open(..., "rb") as f:
+with open("../data/TinyStoriesV2-GPT4-valid.txt", "rb") as f:
+    file_content = f.read()
     num_processes = 4
     boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
 
     # The following is a serial implementation, but you can parallelize this
     # by sending each start/end pair to a set of processes.
+
+    # convenient to represent in this format: dict[tuple[bytes, ...], int]
+    counts = defaultdict(int)
+
     for start, end in zip(boundaries[:-1], boundaries[1:]):
         f.seek(start)
         chunk = f.read(end - start).decode("utf-8", errors="ignore")
+        
+        # remove special tokens from the chunk before pre-tokenization
+        spec_tok = re.escape('<|endoftext|>')
+        chunk = '|'.join(re.split(spec_tok, chunk))
+
         # Run pre-tokenization on your chunk and store the counts for each pre-token
+        # Pre-tokenize
+        PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+        matches = re.finditer(PAT, chunk)
+
+        for match in matches:
+            if match == '|':
+                continue
+            byte = match.group().encode('utf-8')
+            tup = ()
+            for b in byte:
+                tup += (bytes([b]),)
+            
+            counts[tup] += 1
