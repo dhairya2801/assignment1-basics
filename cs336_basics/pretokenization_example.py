@@ -3,6 +3,7 @@ import regex as re
 from typing import BinaryIO
 from multiprocessing import Pool
 from collections import defaultdict
+from collections import Counter
 
 def find_chunk_boundaries(
     file: BinaryIO,
@@ -50,38 +51,50 @@ def find_chunk_boundaries(
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
 
+def count_pretokens(args):
+    file, start, end = args
 
-## Usage
-with open("../data/TinyStoriesV2-GPT4-valid.txt", "rb") as f:
-    file_content = f.read()
-    num_processes = 4
-    boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
-
-    # The following is a serial implementation, but you can parallelize this
-    # by sending each start/end pair to a set of processes.
-
-    # convenient to represent in this format: dict[tuple[bytes, ...], int]
-    counts = defaultdict(int)
-
-    for start, end in zip(boundaries[:-1], boundaries[1:]):
+    with open(file, "rb") as f:
+        SPECIAL_TOKEN = "<|endoftext|>"
         f.seek(start)
         chunk = f.read(end - start).decode("utf-8", errors="ignore")
-        
-        # remove special tokens from the chunk before pre-tokenization
-        spec_tok = re.escape('<|endoftext|>')
-        chunk = '|'.join(re.split(spec_tok, chunk))
+        docs = re.split(re.escape(SPECIAL_TOKEN), chunk)
 
-        # Run pre-tokenization on your chunk and store the counts for each pre-token
-        # Pre-tokenize
         PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-        matches = re.finditer(PAT, chunk)
+        
+        local_count = Counter()
 
-        for match in matches:
-            if match == '|':
-                continue
-            byte = match.group().encode('utf-8')
-            tup = ()
-            for b in byte:
-                tup += (bytes([b]),)
-            
-            counts[tup] += 1
+        for doc in docs:
+            matches = re.finditer(PAT, doc)
+            for match in matches:
+                byte = match.group().encode('utf-8')
+                tup = ()
+                for b in byte:
+                    tup += (bytes([b]),)
+                local_count[tup] += 1
+    
+    return local_count
+
+if __name__ == '__main__':
+    num_processes = 8
+
+    path = "/home/dhairya2801/Dhairya/cs336/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt"
+    with open(path, 'rb') as f:
+        boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
+        
+        # args to be passed to each chunk
+        tasks = [
+            (path, start, end)
+            for start, end in zip(boundaries[:-1], boundaries[1:])
+        ]
+
+    with Pool(1) as pool:
+        chunk_counts = pool.map(count_pretokens, tasks)
+    
+    global_counts = Counter()
+
+    for count in chunk_counts:
+        global_counts.update(count)
+    
+
+    print(global_counts.most_common(20))
