@@ -2,7 +2,6 @@ import os
 import regex as re
 from typing import BinaryIO
 from multiprocessing import Pool
-from collections import defaultdict
 from collections import Counter
 
 def find_chunk_boundaries(
@@ -75,10 +74,7 @@ def count_pretokens(args):
     
     return local_count
 
-if __name__ == '__main__':
-    num_processes = 8
-
-    path = "/home/dhairya2801/Dhairya/cs336/assignment1-basics/data/TinyStoriesV2-GPT4-valid.txt"
+def counts(path, num_processes=6):
     with open(path, 'rb') as f:
         boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
         
@@ -88,7 +84,7 @@ if __name__ == '__main__':
             for start, end in zip(boundaries[:-1], boundaries[1:])
         ]
 
-    with Pool(1) as pool:
+    with Pool(6) as pool:
         chunk_counts = pool.map(count_pretokens, tasks)
     
     global_counts = Counter()
@@ -96,5 +92,7 @@ if __name__ == '__main__':
     for count in chunk_counts:
         global_counts.update(count)
     
+    return global_counts
 
-    print(global_counts.most_common(20))
+if __name__ == '__main__':
+    counts()
