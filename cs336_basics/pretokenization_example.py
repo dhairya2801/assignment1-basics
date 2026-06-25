@@ -1,4 +1,5 @@
 import os
+import time
 import regex as re
 from typing import BinaryIO
 from multiprocessing import Pool
@@ -75,6 +76,8 @@ def count_pretokens(args):
     return local_count
 
 def counts(path, num_processes=6):
+    start_time = time.perf_counter()
+
     with open(path, 'rb') as f:
         boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
         
@@ -92,7 +95,11 @@ def counts(path, num_processes=6):
     for count in chunk_counts:
         global_counts.update(count)
     
-    return global_counts
+    end_time = time.perf_counter()
+    
+    pretok_time = end_time - start_time
+
+    return global_counts, pretok_time
 
 if __name__ == '__main__':
     counts()
