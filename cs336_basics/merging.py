@@ -79,7 +79,7 @@ def merge(path: str, max_vocab_size: int, special_tokens):
     num_processes = os.cpu_count() - 1
     
     # pretokenization
-    global_counts = counts(path, num_processes)
+    global_counts, pretok_time = counts(path, num_processes)
 
     start = time.perf_counter()
 
@@ -96,7 +96,7 @@ def merge(path: str, max_vocab_size: int, special_tokens):
         merged = pair[0]+pair[1]
         vocab.append(merged)
 
-        global_counts, pretok_time = resolve_pairs(global_counts, pair)
+        global_counts = resolve_pairs(global_counts, pair)
     
     end = time.perf_counter()
 
@@ -106,7 +106,7 @@ def merge(path: str, max_vocab_size: int, special_tokens):
     # print(reverse_index)
 
     for i in range(len(vocab)):
-        vocab_dict[i] = vocab[i]
+        vocab_dict[vocab[i]] = i
 
     # find longest token in the vocab
     longest = ''
@@ -125,9 +125,9 @@ def merge(path: str, max_vocab_size: int, special_tokens):
     serialize_data["vocab"] = vocab_dict
     serialize_data["merges"] = merges
     serialize_data["longest_token"] = longest
-    serialize_data["training_time"] = end - start
-    serialize_data["pretokenization_time"] = pretok_time
-    serialize_data["peak_rss"] = peak_rss
+    serialize_data["training_time"] = f'{end - start:.2f} s'
+    serialize_data["pretokenization_time"] = f'{pretok_time:.2f} s'
+    serialize_data["peak_rss"] = f'{peak_rss:.2f} GiB'
     
     with open("naive_merging.pickle", "wb") as out_vocab:
         pickle.dump(serialize_data, out_vocab)
