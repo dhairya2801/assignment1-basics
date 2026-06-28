@@ -12,9 +12,15 @@ class Tokenizer:
         for k, v in vocab.items():
             self.vocab_enc[v] = k
     
+    # generator method
     def encode_iterable(self, iterable):
-        pass
+        '''
+        lazily yield token ids, i.e. return 1 token id at a time to the caller
         
+        '''
+        for word in iterable:
+            yield from self.encode(word)
+            
     def encode(self, text):
         '''
         1. pre-tokenize and represent each pre-token as a sequence of bytes
@@ -100,8 +106,6 @@ if __name__ == '__main__':
     'out, but the pit was too deep. Tom and Sam were stuck in the pit. They called for help, but no one could hear '
     'them. They were sad and scared, and they never got out of the pit.'
     )
-
-    text = '🙃'
     
     out = tok.encode(text)
     dec = tok.decode(out)
