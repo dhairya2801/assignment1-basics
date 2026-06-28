@@ -4,7 +4,7 @@ import time
 import pickle
 from collections import defaultdict
 
-from pretokenization_example import counts
+from .pretokenization_example import counts
 
 '''
 input: pre-token counts: dict[tuple[bytes], count], max vocab size: int, special tokens: list[str]
@@ -106,7 +106,7 @@ def merge(path: str, max_vocab_size: int, special_tokens):
     # print(reverse_index)
 
     for i in range(len(vocab)):
-        vocab_dict[vocab[i]] = i
+        vocab_dict[i] = vocab[i]
 
     # find longest token in the vocab
     longest = ''
