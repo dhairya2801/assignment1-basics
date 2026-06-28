@@ -69,6 +69,8 @@ def resolve_pairs(global_counts, pair):
 
 
 def merge(path: str, max_vocab_size: int, special_tokens):
+    # todo: handling a list of special tokens
+
     # initiate base vocab
     vocab = [bytes([i]) for i in range(256)]
     spec_tok = "<|endoftext|>".encode("utf-8") # only for TinyStories
