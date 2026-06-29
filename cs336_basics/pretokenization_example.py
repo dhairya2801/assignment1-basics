@@ -53,26 +53,46 @@ def find_chunk_boundaries(
 
 def count_pretokens(args):
     file, start, end = args
+    SPECIAL_TOKEN = b"<|endoftext|>"
+
+    PAT = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+    local_count = Counter()
+
+    chunk_size = 1024*1024*10
 
     with open(file, "rb") as f:
-        SPECIAL_TOKEN = "<|endoftext|>"
         f.seek(start)
-        chunk = f.read(end - start).decode("utf-8", errors="ignore")
-        docs = re.split(re.escape(SPECIAL_TOKEN), chunk)
-
-        PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+        current_pos = start
+        buffer = b""
         
-        local_count = Counter()
+        while current_pos < end:
+            # read a block, respecting the end boundary
+            read_size = min(chunk_size, end-current_pos)
+            block = f.read(read_size)
+            if not block:
+                break
+            current_pos += len(block)
 
-        for doc in docs:
-            matches = re.finditer(PAT, doc)
-            for match in matches:
-                byte = match.group().encode('utf-8')
-                tup = ()
-                for b in byte:
-                    tup += (bytes([b]),)
-                local_count[tup] += 1
-    
+            buffer += block
+
+            docs = buffer.split(SPECIAL_TOKEN)
+
+            if current_pos < end:
+                buffer = docs.pop()
+            else:
+                buffer = b""
+            
+            for doc in docs:
+                if not doc:
+                    continue
+                    
+                text_doc = doc.decode('utf-8', errors="ignore")
+
+                for match in PAT.finditer(text_doc):
+                    byte_str = match.group().encode('utf-8')
+                    tup = tuple(bytes([b]) for b in byte_str)
+                    local_count[tup] += 1
+        
     return local_count
 
 def counts(path, num_processes=6):
@@ -87,9 +107,10 @@ def counts(path, num_processes=6):
             for start, end in zip(boundaries[:-1], boundaries[1:])
         ]
 
-    with Pool(6) as pool:
+    with Pool(num_processes) as pool:
+        print(f"START  pid={os.getpid()} chunk=({tasks[0][1]}, {tasks[0][2]})")
         chunk_counts = pool.map(count_pretokens, tasks)
-    
+
     global_counts = Counter()
 
     for count in chunk_counts:

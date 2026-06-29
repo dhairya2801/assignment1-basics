@@ -4,7 +4,7 @@ import time
 import pickle
 from collections import defaultdict
 
-from .pretokenization_example import counts
+from pretokenization_example import counts
 
 '''
 input: pre-token counts: dict[tuple[bytes], count], max vocab size: int, special tokens: list[str]
@@ -127,15 +127,15 @@ def merge(path: str, max_vocab_size: int, special_tokens):
     serialize_data["vocab"] = vocab_dict
     serialize_data["merges"] = merges
     serialize_data["longest_token"] = longest
-    serialize_data["training_time"] = f'{end - start:.2f} s'
+    serialize_data["training_time"] = f'{training_time:.2f} s'
     serialize_data["pretokenization_time"] = f'{pretok_time:.2f} s'
     serialize_data["peak_rss"] = f'{peak_rss:.2f} GiB'
     
-    with open("naive_merging.pickle", "wb") as out_vocab:
+    with open("tokenizer_owt_naive.pickle", "wb") as out_vocab:
         pickle.dump(serialize_data, out_vocab)
     
     return vocab_dict, merges
         
 if __name__ == '__main__':
-    path = "/home/dhairya2801/Dhairya/cs336/assignment1-basics/data/TinyStoriesV2-GPT4-train.txt"
-    merge(path, 10000, ['<|endoftext|>'])
+    path = "/home/dhairya2801/Dhairya/cs336/assignment1-basics/data/owt_train.txt"
+    merge(path, 32000, ['<|endoftext|>'])
