@@ -108,7 +108,6 @@ def counts(path, num_processes=6):
         ]
 
     with Pool(num_processes) as pool:
-        print(f"START  pid={os.getpid()} chunk=({tasks[0][1]}, {tasks[0][2]})")
         chunk_counts = pool.map(count_pretokens, tasks)
 
     global_counts = Counter()
