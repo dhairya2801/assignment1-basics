@@ -51,6 +51,7 @@ def find_chunk_boundaries(
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
 
+
 def count_pretokens(args):
     file, start, end = args
     SPECIAL_TOKEN = b"<|endoftext|>"

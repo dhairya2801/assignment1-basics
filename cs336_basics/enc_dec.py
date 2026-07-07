@@ -1,5 +1,9 @@
 import regex as re
+import numpy as np
 import pickle
+from .pretokenization_example import find_chunk_boundaries
+import os
+from multiprocessing import Pool
 
 class Tokenizer:
     def __init__(self, vocab, merges, special_tokens=[]):
@@ -7,6 +11,7 @@ class Tokenizer:
         self.merges = merges
         self.special_tokens = special_tokens
         self.vocab_enc = {}
+        self.num_processes = os.cpu_count() - 1
 
         # reverse index for encoding token -> id
         for k, v in vocab.items():
@@ -20,14 +25,44 @@ class Tokenizer:
         '''
         for word in iterable:
             yield from self.encode(word)
-            
+    
+    def path_to_chunks(self, path):
+        with open(path, "rb") as f:
+            boundaries = find_chunk_boundaries(f, self.num_processes, b"<|endoftext|>")
+        
+        tasks = [
+            (path, start, end)
+            for start, end in zip(boundaries[:-1], boundaries[1:])
+        ]
+
+        with Pool(self.num_processes) as pool:
+            chunk_out = pool.map(self.chunk_to_text, tasks)
+        
+        out = []
+
+        for i in chunk_out:
+            out += i
+        
+        return out
+    
+
+    def chunk_to_text(self, args):
+        file, start, end = args
+        with open (file, "rb") as f:
+            f.seek(start)
+            print(f'sending bytes {start}-{end} to encode')
+            chunk_content = f.read(end - start)
+        
+        return self.encode(chunk_content.decode('utf-8'))
+    
+
     def encode(self, text):
         '''
         1. pre-tokenize and represent each pre-token as a sequence of bytes
         2. apply the merges to pre-tokens (respect the order of merge creation) until no more can be applied
         3. represent as token IDs
         
-        '''
+        '''        
         # split on special tokens
         SPECIAL_TOKEN = "<|endoftext|>"
         docs = re.split(re.escape(SPECIAL_TOKEN), text)
@@ -78,11 +113,13 @@ class Tokenizer:
             for i in pretokenized_text:
                 for j in i:
                     ids.append(self.vocab_enc[j])
-                            
+    
         return ids
+    
     
     def decode(self, ids):
         out_text = b''
+
         for i in ids:
             out_text += self.vocab[i]
         
@@ -92,20 +129,23 @@ class Tokenizer:
 
     
 if __name__ == '__main__':
-    with open("../tokenizer_tinystories_naive.pickle", "rb") as infile:
+    with open("/home/dhairya2801/Dhairya/cs336/assignment1-basics/tokenizer_tinystories_revind.pickle", "rb") as infile:
         merge = pickle.load(infile)
     
     tok = Tokenizer(merge['vocab'], merge['merges'])
-    text = (
-        'Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play '
-    'near the pit. One day, Tom lost his red ball. He was very sad. Tom asked his friend, Sam, to help him search '
-    'for the ball. They looked high and low, but they could not find the ball. Tom said, "I think my ball fell '
-    'into the pit." Sam and Tom went close to the pit. They were scared, but they wanted to find the red ball. '
-    'They looked into the pit, but it was too dark to see. Tom said, "We must go in and search for my ball." '
-    'They went into the pit to search. It was dark and scary. They could not find the ball. They tried to get '
-    'out, but the pit was too deep. Tom and Sam were stuck in the pit. They called for help, but no one could hear '
-    'them. They were sad and scared, and they never got out of the pit.'
-    )
-    
-    out = tok.encode(text)
-    dec = tok.decode(out)
+    # text = (
+    #     'Once upon a time, in a warm and sunny place, there was a big pit. A little boy named Tom liked to play '
+    # 'near the pit. One day, Tom lost his red ball. He was very sad. Tom asked his friend, Sam, to help him search '
+    # 'for the ball. They looked high and low, but they could not find the ball. Tom said, "I think my ball fell '
+    # 'into the pit." Sam and Tom went close to the pit. They were scared, but they wanted to find the red ball. '
+    # 'They looked into the pit, but it was too dark to see. Tom said, "We must go in and search for my ball." '
+    # 'They went into the pit to search. It was dark and scary. They could not find the ball. They tried to get '
+    # 'out, but the pit was too deep. Tom and Sam were stuck in the pit. They called for help, but no one could hear '
+    # 'them. They were sad and scared, and they never got out of the pit.'
+    # )
+
+    path = "data/TinyStoriesV2-GPT4-train.txt"
+
+    out = tok.path_to_chunks(path)
+
+    np.save('encoded_tinystories_train.npy', np.array(out, dtype=np.uint16))
