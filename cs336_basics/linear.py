@@ -9,20 +9,17 @@ class Linear(nn.Module):
 
         variance = 2 / (in_features + out_features)
         std = np.sqrt(variance)
-        mean = 0.0
         size = (out_features, in_features)
 
         # initialize weight matrix
-        w = torch.empty(size)
-        self.W = torch.nn.init.trunc_normal_(w, mean=mean, std=std, a=-3, b=3, generator=None)
-        self.W = nn.Parameter(w)
-        
+        w = nn.Parameter(torch.empty(size, device=device, dtype=dtype))
+        self.W = torch.nn.init.trunc_normal_(w, mean=0, std=std, a=-3, b=3, generator=None)
     
     def forward(self, x):
         # implement y = Wx; W: (dout, din), x: (din, 1)
         # in row major; y = xW_T
 
-        y = einsum(x, self.W, "batch din, dout din -> batch dout")
+        y = einsum(x, self.W, "... din, dout din -> ... dout")
         return y
 
 
